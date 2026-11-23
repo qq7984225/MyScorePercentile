@@ -1,8 +1,9 @@
 ## Interface: 120105
 ## Title: MyScorePercentile
-## Notes: 在大秘境面板、鼠标提示与集合石中显示当前分数的百分位估算
+## Notes: 大秘境分数百分位估算与全阵营分数线交互面板
 ## Author: Custom
-## Version: 1.0.0
+## Version: 2.0.0
+## SavedVariables: MyScorePercentileDB
 
 Data.lua
 Core.lua
