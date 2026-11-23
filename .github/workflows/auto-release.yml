@@ -1,0 +1,60 @@
+name: Auto Update Cutoffs & Release
+
+on:
+  schedule:
+    # 每 6 小时自动执行一次（UTC 0/6/12/18 点）
+    - cron: '0 */6 * * *'
+  # 支持在网页上手动点击立即运行
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Fetch latest Raider.IO cutoffs
+        run: python scripts/update_data.py
+
+      - name: Check changes and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CHANGED=$(git status --porcelain Data.lua)
+
+          # 定时任务且数据没变化时直接结束；手动触发时强制发一版
+          if [ -z "$CHANGED" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "分数线未变动，跳过本次发版。"
+            exit 0
+          fi
+
+          TAG="v$(TZ='Asia/Shanghai' date +'%Y.%m.%d-%H%M')"
+
+          if [ -n "$CHANGED" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add Data.lua
+            git commit -m "chore: update cutoffs ($TAG)"
+            git push
+          fi
+
+          # 同步更新 toc 里的版本号，便于插件管理器识别更新
+          sed -i "s/^## Version:.*/## Version: ${TAG}/" MyScorePercentile.toc
+
+          # 按魔兽插件标准结构打包成 zip
+          mkdir -p dist/MyScorePercentile
+          cp MyScorePercentile.toc Core.lua Data.lua dist/MyScorePercentile/
+          (cd dist && zip -r ../MyScorePercentile.zip MyScorePercentile)
+
+          gh release create "$TAG" MyScorePercentile.zip \
+            --title "$TAG" \
+            --notes "自动同步 Raider.IO 最新大秘境分数线 ($TAG)"
