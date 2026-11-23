@@ -1,1 +1,1 @@
-# MyScorePercentile
+魔兽世界自动获取大米分数排行插件
